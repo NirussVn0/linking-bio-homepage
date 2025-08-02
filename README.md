@@ -23,6 +23,6 @@ Feel free to check the [issues page](https://github.com/NirussVn0/linkingbio/iss
 
 ## 📄 License
 
-This project is [LICENSE](LICENSE)
+This project is [LICENSE](LICENSE.md)
 Author [NirussVn0](https://github.com/NirussVn0)
 
