@@ -7,16 +7,21 @@ visit web: [SOV Studio](https://sabicoder.xyz/projects/linking-bio)
 
 ![Preview](images/preview-image.png)
 
-## 🚀 Available Scripts
-
+## Installation
 
 ```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint
-npm run test         # Run tests
-npm run test:watch   # Run tests in watch mode
+pnpm install
+```
+
+## 🚀 Available Scripts
+
+```bash
+pnpm run dev          # Start development server
+pnpm run build        # Build for production
+pnpm run start        # Start production server
+pnpm run lint         # Run ESLint
+pnpm run test         # Run tests
+pnpm run test:watch   # Run tests in watch mode
 ```
 
 ## 📝 Contributing
