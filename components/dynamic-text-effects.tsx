@@ -2,7 +2,6 @@
 
 import type React from "react"
 
-import { throttle } from "@/lib/performance-utils"
 import { AnimatePresence, motion } from "framer-motion"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
@@ -56,6 +55,7 @@ export function DynamicTextEffects() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [displayText, setDisplayText] = useState("")
+  const [isDecoding, setIsDecoding] = useState(false)
 
   // Generate deterministic positions for particles to avoid hydration mismatch
   const particlePositions = useMemo(() => {
@@ -99,20 +99,13 @@ export function DynamicTextEffects() {
     return () => clearTimeout(timeout)
   }, [currentIndex, currentEffect])
 
-  // Throttled mouse tracking for black hole effect
-  const throttledSetMousePosition = useMemo(
-    () => throttle((position: { x: number; y: number }) => {
-      setMousePosition(position)
-    }, 16), // ~60fps
-    []
-  )
-
+  // Mouse tracking for black hole effect
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2
     const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2
-    throttledSetMousePosition({ x: x * 30, y: y * 30 })
-  }, [throttledSetMousePosition])
+    setMousePosition({ x: x * 30, y: y * 30 })
+  }, [])
 
   // Typewriter effect
   useEffect(() => {
@@ -137,6 +130,7 @@ export function DynamicTextEffects() {
   // Decode effect with proper timing
   useEffect(() => {
     if (currentEffect.type === "decode") {
+      setIsDecoding(true)
       const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()"
       const finalText = currentEffect.text
       let iterations = 0
@@ -149,15 +143,14 @@ export function DynamicTextEffects() {
               if (index < iterations) {
                 return finalText[index]
               }
-              // Use deterministic character selection based on index and iteration
-              const charIndex = (index + Math.floor(iterations)) % chars.length
-              return char === " " ? " " : chars[charIndex]
+              return char === " " ? " " : chars[Math.floor(Math.random() * chars.length)]
             })
             .join(""),
         )
 
         if (iterations >= finalText.length) {
           clearInterval(decodeInterval)
+          setIsDecoding(false)
         }
 
         iterations += 0.8

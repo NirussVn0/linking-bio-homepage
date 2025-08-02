@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import type { LucideIcon } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 
 interface Feature {
   id: number
@@ -19,16 +19,6 @@ interface FlipCardProps {
 export function FlipCard({ feature }: FlipCardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
   const Icon = feature.icon
-
-  // Generate deterministic positions for particles to avoid hydration mismatch
-  const particlePositions = useMemo(() => {
-    return Array.from({ length: 8 }, (_, i) => ({
-      left: (i * 13 + 7) % 90 + 5, // Distribute across 90% width with 5% margin
-      top: (i * 17 + 11) % 80 + 10, // Distribute across 80% height with 10% margin
-      duration: 2 + (i % 3) * 0.5, // Deterministic duration variation
-      delay: (i * 0.3) % 2, // Deterministic delay
-    }))
-  }, [])
 
   return (
     <div
@@ -86,22 +76,22 @@ export function FlipCard({ feature }: FlipCardProps) {
         >
           {/* Animated particles */}
           <div className="absolute inset-0 pointer-events-none">
-            {particlePositions.map((particle, i) => (
+            {Array.from({ length: 8 }).map((_, i) => (
               <motion.div
                 key={i}
                 className="absolute w-1 h-1 bg-green-400 rounded-full"
                 style={{
-                  left: `${particle.left}%`,
-                  top: `${particle.top}%`,
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
                 }}
                 animate={{
                   opacity: [0, 1, 0],
                   scale: [0.5, 1, 0.5],
                 }}
                 transition={{
-                  duration: particle.duration,
+                  duration: 2 + Math.random(),
                   repeat: Number.POSITIVE_INFINITY,
-                  delay: particle.delay,
+                  delay: Math.random() * 2,
                 }}
               />
             ))}

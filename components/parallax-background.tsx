@@ -1,42 +1,30 @@
 "use client"
 
-import { createOptimizedMouseTracker, isTouchDevice } from "@/lib/performance-utils"
 import { motion } from "framer-motion"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 export function ParallaxBackground() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [fireflies, setFireflies] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([])
-  const trackerRef = useRef<{ handleMouseMove: (e: MouseEvent) => void; cleanup: () => void } | null>(null)
 
-  // Don't track mouse on touch devices for better performance
-  const shouldTrackMouse = !isTouchDevice()
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    setMousePosition({
+      x: e.clientX,
+      y: e.clientY,
+    })
+  }, [])
 
   useEffect(() => {
-    if (!shouldTrackMouse) return
-
-    // Create optimized mouse tracker with lower frequency for background effects
-    trackerRef.current = createOptimizedMouseTracker(
-      (position) => setMousePosition(position),
-      32 // ~30fps for background effects is sufficient
-    )
-
-    window.addEventListener("mousemove", trackerRef.current.handleMouseMove, { passive: true })
-
-    return () => {
-      if (trackerRef.current) {
-        window.removeEventListener("mousemove", trackerRef.current.handleMouseMove)
-        trackerRef.current.cleanup()
-      }
-    }
-  }, [shouldTrackMouse])
+    window.addEventListener("mousemove", handleMouseMove, { passive: true })
+    return () => window.removeEventListener("mousemove", handleMouseMove)
+  }, [handleMouseMove])
 
   const memoizedFireflies = useMemo(() => {
     return Array.from({ length: 8 }, (_, i) => ({
       id: i,
-      x: (i * 13 + 7) % 100, // Deterministic x position
-      y: (i * 17 + 11) % 100, // Deterministic y position
-      delay: (i * 0.4) % 3, // Deterministic delay
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      delay: Math.random() * 3,
     }))
   }, [])
 
