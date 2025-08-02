@@ -1,30 +1,42 @@
 "use client"
 
+import { createOptimizedMouseTracker, isTouchDevice } from "@/lib/performance-utils"
 import { motion } from "framer-motion"
-import { useEffect, useState, useCallback, useMemo } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 export function ParallaxBackground() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [fireflies, setFireflies] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([])
+  const trackerRef = useRef<{ handleMouseMove: (e: MouseEvent) => void; cleanup: () => void } | null>(null)
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    setMousePosition({
-      x: e.clientX,
-      y: e.clientY,
-    })
-  }, [])
+  // Don't track mouse on touch devices for better performance
+  const shouldTrackMouse = !isTouchDevice()
 
   useEffect(() => {
-    window.addEventListener("mousemove", handleMouseMove, { passive: true })
-    return () => window.removeEventListener("mousemove", handleMouseMove)
-  }, [handleMouseMove])
+    if (!shouldTrackMouse) return
+
+    // Create optimized mouse tracker with lower frequency for background effects
+    trackerRef.current = createOptimizedMouseTracker(
+      (position) => setMousePosition(position),
+      32 // ~30fps for background effects is sufficient
+    )
+
+    window.addEventListener("mousemove", trackerRef.current.handleMouseMove, { passive: true })
+
+    return () => {
+      if (trackerRef.current) {
+        window.removeEventListener("mousemove", trackerRef.current.handleMouseMove)
+        trackerRef.current.cleanup()
+      }
+    }
+  }, [shouldTrackMouse])
 
   const memoizedFireflies = useMemo(() => {
     return Array.from({ length: 8 }, (_, i) => ({
       id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      delay: Math.random() * 3,
+      x: (i * 13 + 7) % 100, // Deterministic x position
+      y: (i * 17 + 11) % 100, // Deterministic y position
+      delay: (i * 0.4) % 3, // Deterministic delay
     }))
   }, [])
 
@@ -35,11 +47,11 @@ export function ParallaxBackground() {
   const redLines = useMemo(() => {
     return Array.from({ length: 6 }, (_, i) => ({
       id: i,
-      width: 250 + Math.random() * 100,
-      left: Math.random() * 100,
-      top: Math.random() * 100,
-      rotation: Math.random() * 180,
-      delay: Math.random() * 2,
+      width: 250 + (i * 17) % 100, // Deterministic width variation
+      left: (i * 23 + 13) % 100,   // Deterministic left position
+      top: (i * 31 + 7) % 100,     // Deterministic top position
+      rotation: (i * 37) % 180,    // Deterministic rotation
+      delay: (i * 0.4) % 2,        // Deterministic delay
     }))
   }, [])
 

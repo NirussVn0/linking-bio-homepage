@@ -2,8 +2,9 @@
 
 import type React from "react"
 
+import { calculateRelativePosition, throttle } from "@/lib/performance-utils"
 import { motion } from "framer-motion"
-import { useState, useCallback, type ReactNode } from "react"
+import { useCallback, useMemo, useState, type ReactNode } from "react"
 
 interface Mouse3DCardProps {
   children: ReactNode
@@ -15,15 +16,20 @@ export function Mouse3DCard({ children, className = "", intensity = 1 }: Mouse3D
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [isHovered, setIsHovered] = useState(false)
 
+  // Throttle mouse move handler for better performance
+  const throttledSetMousePosition = useMemo(
+    () => throttle((position: { x: number; y: number }) => {
+      setMousePosition(position)
+    }, 16), // ~60fps
+    []
+  )
+
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      const rect = e.currentTarget.getBoundingClientRect()
-      const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2
-      const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2
-
-      setMousePosition({ x: x * intensity, y: y * intensity })
+      const position = calculateRelativePosition(e, intensity)
+      throttledSetMousePosition(position)
     },
-    [intensity],
+    [intensity, throttledSetMousePosition],
   )
 
   const handleMouseLeave = useCallback(() => {

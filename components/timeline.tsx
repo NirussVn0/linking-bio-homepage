@@ -1,8 +1,8 @@
 "use client"
 
 import { motion, useDragControls } from "framer-motion"
-import { useState } from "react"
-import { Plus, Palette, Share2 } from "lucide-react"
+import { Palette, Plus, Share2 } from "lucide-react"
+import { useMemo, useState } from "react"
 
 const timelineSteps = [
   {
@@ -29,6 +29,14 @@ export function Timeline() {
   const [hoveredStep, setHoveredStep] = useState<number | null>(null)
   const [glowPosition, setGlowPosition] = useState(0)
   const dragControls = useDragControls()
+
+  // Generate deterministic positions for particles to avoid hydration mismatch
+  const particlePositions = useMemo(() => {
+    return Array.from({ length: 6 }, (_, i) => ({
+      left: 15 + (i * 15) % 70, // Distribute across 70% width
+      top: 20 + (i * 12) % 60,  // Distribute across 60% height
+    }))
+  }, [])
 
   return (
     <div className="py-16">
@@ -198,8 +206,8 @@ export function Timeline() {
                         key={i}
                         className="absolute w-1 h-1 bg-green-400 rounded-full"
                         style={{
-                          left: `${Math.random() * 100}%`,
-                          top: `${Math.random() * 100}%`,
+                          left: `${particlePositions[i].left}%`,
+                          top: `${particlePositions[i].top}%`,
                         }}
                         animate={{
                           scale: [0, 1, 0],

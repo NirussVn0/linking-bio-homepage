@@ -11,12 +11,12 @@ export function HeroSection() {
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       <ParallaxBackground />
 
-      <div className="relative z-10 text-center px-4 max-w-5xl mx-auto py-20">
+      <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: "easeOut" }}
-          className="mb-3"
+          className="mb-8"
         >
           <AnimatedLogo />
         </motion.div>
@@ -25,7 +25,6 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.3, ease: "easeOut" }}
-          className="mb-16"
         >
           <DynamicTextEffects />
         </motion.div>
@@ -34,7 +33,7 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.6, ease: "easeOut" }}
-          className="text-lg md:text-xl lg:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed px-4"
+          className="text-lg md:text-xl lg:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed px-4 mt-8"
         >
           Transform your online presence with a stunning bio-link page that showcases everything you are
         </motion.p>

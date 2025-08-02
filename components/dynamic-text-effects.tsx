@@ -2,8 +2,10 @@
 
 import type React from "react"
 
-import { motion, AnimatePresence } from "framer-motion"
-import { useEffect, useState, useCallback } from "react"
+import { throttle } from "@/lib/performance-utils"
+import { AnimatePresence, motion } from "framer-motion"
+import { useCallback, useEffect, useMemo, useState } from "react"
+
 
 const textEffects = [
   {
@@ -54,43 +56,63 @@ export function DynamicTextEffects() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [displayText, setDisplayText] = useState("")
-  const [isDecoding, setIsDecoding] = useState(false)
+
+  // Generate deterministic positions for particles to avoid hydration mismatch
+  const particlePositions = useMemo(() => {
+    return Array.from({ length: 6 }, (_, i) => ({
+      animationX: (i % 2 === 0 ? 1 : -1) * (10 + (i * 3)),
+      animationY: (i % 3 === 0 ? 1 : -1) * (8 + (i * 2)),
+    }))
+  }, [])
 
   const currentEffect = textEffects[currentIndex]
 
-  // Auto-cycle through effects
+  // Auto-cycle through effects - wait for each effect to complete
   useEffect(() => {
     const getEffectDuration = (type: string) => {
       switch (type) {
         case "typewriter":
-          return 3000 // Wait for typing to complete
+          return 2100 // 21 characters * 100ms + buffer
         case "decode":
-          return 4000 // Wait for decoding to complete
+          return 3500 // Decode animation duration + buffer
         case "reveal":
-          return 3500 // Wait for all letters to reveal
+          return 2600 // 21 characters * 100ms delay + animation + buffer
         case "3d-space":
-          return 4000 // Allow full 3D rotation
+          return 4000 // Full 3D animation cycle
+        case "glow":
+          return 4000 // Full glow cycle
+        case "rainbow":
+          return 4000 // Full rainbow cycle
+        case "black-hole":
+          return 5000 // Interactive effect, longer duration
         default:
           return 3000
       }
     }
 
-    const duration = getEffectDuration(currentEffect.type)
+    const currentDuration = getEffectDuration(currentEffect.type)
 
     const timeout = setTimeout(() => {
       setCurrentIndex((prev) => (prev + 1) % textEffects.length)
-    }, duration)
+    }, currentDuration)
 
     return () => clearTimeout(timeout)
-  }, [currentIndex, currentEffect.type])
+  }, [currentIndex, currentEffect])
 
-  // Mouse tracking for black hole effect
+  // Throttled mouse tracking for black hole effect
+  const throttledSetMousePosition = useMemo(
+    () => throttle((position: { x: number; y: number }) => {
+      setMousePosition(position)
+    }, 16), // ~60fps
+    []
+  )
+
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2
     const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2
-    setMousePosition({ x: x * 30, y: y * 30 })
-  }, [])
+    throttledSetMousePosition({ x: x * 30, y: y * 30 })
+  }, [throttledSetMousePosition])
 
   // Typewriter effect
   useEffect(() => {
@@ -112,11 +134,10 @@ export function DynamicTextEffects() {
     }
   }, [currentEffect])
 
-  // Decode effect
+  // Decode effect with proper timing
   useEffect(() => {
     if (currentEffect.type === "decode") {
-      setIsDecoding(true)
-      const chars = "!@#$%^&*()_+-=[]{}|;:,.<>?"
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()"
       const finalText = currentEffect.text
       let iterations = 0
 
@@ -128,263 +149,271 @@ export function DynamicTextEffects() {
               if (index < iterations) {
                 return finalText[index]
               }
-              return char === " " ? " " : chars[Math.floor(Math.random() * chars.length)]
+              // Use deterministic character selection based on index and iteration
+              const charIndex = (index + Math.floor(iterations)) % chars.length
+              return char === " " ? " " : chars[charIndex]
             })
             .join(""),
         )
 
         if (iterations >= finalText.length) {
           clearInterval(decodeInterval)
-          setIsDecoding(false)
         }
 
-        iterations += 1 / 3
-      }, 50)
+        iterations += 0.8
+      }, 80)
 
       return () => clearInterval(decodeInterval)
     }
   }, [currentEffect])
 
   const renderTextEffect = () => {
-    const baseClasses = "text-4xl md:text-6xl lg:text-7xl font-bold mb-6 cursor-pointer select-none leading-tight"
+    const baseClasses =
+      "text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold mb-6 cursor-pointer select-none leading-tight"
 
     switch (currentEffect.type) {
       case "typewriter":
         return (
-          <div className="min-h-[120px] flex items-center justify-center">
-            <motion.h1
-              className={`${baseClasses} text-white text-center`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              key={currentEffect.id}
-            >
-              <span className="inline-block">{displayText}</span>
-              {displayText.length < currentEffect.text.length && (
-                <motion.span
-                  className="inline-block w-1 h-12 md:h-16 bg-green-400 ml-1"
-                  animate={{ opacity: [0, 1, 0] }}
-                  transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY }}
-                />
-              )}
-            </motion.h1>
-          </div>
+          <motion.h1
+            className={`${baseClasses} text-white`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            key={currentEffect.id}
+          >
+            {displayText}
+            <motion.span
+              className="inline-block w-1 h-16 ml-2 bg-green-400"
+              animate={{ opacity: [0, 1, 0] }}
+              transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY }}
+            />
+          </motion.h1>
         )
 
       case "glow":
         return (
-          <div className="min-h-[120px] flex items-center justify-center">
-            <motion.h1
-              className={`${baseClasses} bg-gradient-to-r from-white to-green-400 bg-clip-text text-transparent text-center`}
-              key={currentEffect.id}
-              animate={{
-                textShadow: [
-                  "0 0 20px rgba(0, 255, 0, 0.5)",
-                  "0 0 40px rgba(0, 255, 0, 0.8)",
-                  "0 0 60px rgba(0, 255, 0, 1)",
-                  "0 0 40px rgba(0, 255, 0, 0.8)",
-                  "0 0 20px rgba(0, 255, 0, 0.5)",
-                ],
-              }}
-              transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
-            >
-              {currentEffect.text}
-            </motion.h1>
-          </div>
+          <motion.h1
+            className={`${baseClasses} bg-gradient-to-r from-white to-green-400 bg-clip-text text-transparent`}
+            key={currentEffect.id}
+            animate={{
+              textShadow: [
+                "0 0 20px rgba(0, 255, 0, 0.5)",
+                "0 0 40px rgba(0, 255, 0, 0.8)",
+                "0 0 60px rgba(0, 255, 0, 1)",
+                "0 0 40px rgba(0, 255, 0, 0.8)",
+                "0 0 20px rgba(0, 255, 0, 0.5)",
+              ],
+            }}
+            transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
+          >
+            {currentEffect.text}
+          </motion.h1>
         )
 
       case "3d-space":
         return (
-          <div className="min-h-[120px] flex items-center justify-center">
-            <motion.h1
-              className={`${baseClasses} text-white text-center`}
-              key={currentEffect.id}
-              animate={{
-                rotateX: [0, 15, -15, 0],
-                rotateY: [0, 25, -25, 0],
-                z: [0, 100, -100, 0],
-              }}
-              transition={{ duration: 4, repeat: Number.POSITIVE_INFINITY }}
-              style={{
-                transformStyle: "preserve-3d",
-                perspective: "1000px",
-                textShadow: "0 0 20px rgba(0, 255, 0, 0.5)",
-              }}
-            >
-              {currentEffect.text.split(" ").map((word, wordIndex) => (
-                <span key={wordIndex} className="inline-block mr-4">
-                  {word.split("").map((char, charIndex) => (
-                    <motion.span
-                      key={`${wordIndex}-${charIndex}`}
-                      className="inline-block"
-                      animate={{
-                        rotateX: [0, 360],
-                        rotateY: [0, 360],
-                      }}
-                      transition={{
-                        duration: 3,
-                        repeat: Number.POSITIVE_INFINITY,
-                        delay: (wordIndex * word.length + charIndex) * 0.1,
-                      }}
-                      style={{ transformStyle: "preserve-3d" }}
-                    >
-                      {char}
-                    </motion.span>
-                  ))}
-                </span>
-              ))}
-            </motion.h1>
-          </div>
+          <motion.h1
+            className={`${baseClasses} text-white`}
+            key={currentEffect.id}
+            animate={{
+              rotateX: [0, 15, -15, 0],
+              rotateY: [0, 25, -25, 0],
+              z: [0, 100, -100, 0],
+            }}
+            transition={{ duration: 4, repeat: Number.POSITIVE_INFINITY }}
+            style={{
+              transformStyle: "preserve-3d",
+              perspective: "1000px",
+              textShadow: "0 0 20px rgba(0, 255, 0, 0.5)",
+            }}
+          >
+            {currentEffect.text.split("").map((char, index) => (
+              <motion.span
+                key={index}
+                className="inline-block"
+                animate={{
+                  rotateX: [0, 360],
+                  rotateY: [0, 360],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Number.POSITIVE_INFINITY,
+                  delay: index * 0.1,
+                }}
+                style={{ transformStyle: "preserve-3d" }}
+              >
+                {char === " " ? "\u00A0" : char}
+              </motion.span>
+            ))}
+          </motion.h1>
         )
 
       case "black-hole":
         return (
-          <div className="min-h-[120px] flex items-center justify-center">
-            <motion.div className="relative max-w-4xl mx-auto" onMouseMove={handleMouseMove} key={currentEffect.id}>
-              <motion.h1
-                className={`${baseClasses} text-white relative z-10 text-center`}
-                animate={{
-                  filter: `blur(${Math.abs(mousePosition.x + mousePosition.y) * 0.05}px)`,
-                }}
-                transition={{ duration: 0.1 }}
-                style={{
-                  transform: `perspective(1000px) rotateX(${mousePosition.y * 0.2}deg) rotateY(${mousePosition.x * 0.2}deg)`,
-                }}
-              >
-                {currentEffect.text.split(" ").map((word, wordIndex) => (
-                  <span key={wordIndex} className="inline-block mr-4">
-                    {word.split("").map((char, charIndex) => (
-                      <motion.span
-                        key={`${wordIndex}-${charIndex}`}
-                        className="inline-block"
-                        animate={{
-                          x: mousePosition.x * (0.02 + charIndex * 0.005),
-                          y: mousePosition.y * (0.02 + charIndex * 0.005),
-                          scale: Math.max(0.8, 1 - Math.abs(mousePosition.x + mousePosition.y) * 0.001),
-                        }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        {char}
-                      </motion.span>
-                    ))}
-                  </span>
-                ))}
-              </motion.h1>
+          <motion.div
+            className="relative flex justify-center w-full"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => setMousePosition({ x: 0, y: 0 })}
+            key={currentEffect.id}
+          >
+            <motion.h1
+              className={`${baseClasses} text-white relative z-10 text-center`}
+              style={{
+                transformStyle: "preserve-3d",
+                willChange: "transform, filter",
+              }}
+            >
+              {currentEffect.text.split("").map((char, index) => (
+                <motion.span
+                  key={index}
+                  className="inline-block"
+                  animate={{
+                    x: mousePosition.x * (0.02 + index * 0.005),
+                    y: mousePosition.y * (0.02 + index * 0.005),
+                    scale: Math.max(0.8, 1 - Math.abs(mousePosition.x + mousePosition.y) * 0.001),
+                    rotateX: mousePosition.y * 0.2,
+                    rotateY: mousePosition.x * 0.2,
+                  }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 30,
+                    mass: 0.8,
+                  }}
+                  style={{
+                    textShadow: `${mousePosition.x * 0.1}px ${mousePosition.y * 0.1}px 10px rgba(0, 0, 0, 0.5)`,
+                  }}
+                >
+                  {char === " " ? "\u00A0" : char}
+                </motion.span>
+              ))}
+            </motion.h1>
 
-              {/* Black hole visual effect */}
-              <motion.div
-                className="absolute inset-0 pointer-events-none rounded-full"
-                animate={{
-                  background: `radial-gradient(circle at ${50 + mousePosition.x * 0.5}% ${50 + mousePosition.y * 0.5}%, 
-                    rgba(0,0,0,0.6) 0%, 
-                    rgba(0,0,0,0.3) 20%, 
-                    transparent 40%)`,
-                  boxShadow: `inset 0 0 50px rgba(0,0,0,${Math.abs(mousePosition.x + mousePosition.y) * 0.01})`,
-                }}
-              />
-            </motion.div>
-          </div>
+            {/* Enhanced Black hole effect */}
+            <motion.div
+              className="absolute inset-0 rounded-full pointer-events-none"
+              animate={{
+                background: `radial-gradient(circle at ${50 + mousePosition.x * 0.5}% ${50 + mousePosition.y * 0.5}%,
+                  rgba(0,0,0,0.9) 0%,
+                  rgba(0,0,0,0.6) 20%,
+                  rgba(0,255,0,0.1) 40%,
+                  transparent 70%)`,
+                scale: 1 + Math.abs(mousePosition.x + mousePosition.y) * 0.002,
+              }}
+              transition={{ duration: 0.3 }}
+            />
+
+            {/* Particle effect around black hole */}
+            {Math.abs(mousePosition.x) > 5 || Math.abs(mousePosition.y) > 5 ? (
+              <div className="absolute inset-0 pointer-events-none">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute w-1 h-1 bg-green-400 rounded-full"
+                    style={{
+                      left: `${50 + mousePosition.x * 0.3}%`,
+                      top: `${50 + mousePosition.y * 0.3}%`,
+                    }}
+                    animate={{
+                      x: [0, particlePositions[i].animationX],
+                      y: [0, particlePositions[i].animationY],
+                      opacity: [0, 1, 0],
+                      scale: [0, 1, 0],
+                    }}
+                    transition={{
+                      duration: 1,
+                      delay: i * 0.1,
+                      repeat: Number.POSITIVE_INFINITY,
+                    }}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </motion.div>
         )
 
       case "reveal":
         return (
-          <div className="min-h-[120px] flex items-center justify-center">
-            <motion.h1
-              className={`${baseClasses} bg-gradient-to-r from-white to-green-400 bg-clip-text text-transparent text-center`}
-              key={currentEffect.id}
-            >
-              {currentEffect.text.split(" ").map((word, wordIndex) => (
-                <span key={wordIndex} className="inline-block mr-4">
-                  {word.split("").map((char, charIndex) => (
-                    <motion.span
-                      key={`${wordIndex}-${charIndex}`}
-                      className="inline-block"
-                      initial={{ opacity: 0, y: 50, rotateX: -90 }}
-                      animate={{ opacity: 1, y: 0, rotateX: 0 }}
-                      transition={{
-                        duration: 0.5,
-                        delay: (wordIndex * word.length + charIndex) * 0.1,
-                        repeat: Number.POSITIVE_INFINITY,
-                        repeatDelay: 4,
-                      }}
-                    >
-                      {char}
-                    </motion.span>
-                  ))}
-                </span>
-              ))}
-            </motion.h1>
-          </div>
+          <motion.h1
+            className={`${baseClasses} bg-gradient-to-r from-white to-green-400 bg-clip-text text-transparent`}
+            key={currentEffect.id}
+          >
+            {currentEffect.text.split("").map((char, index) => (
+              <motion.span
+                key={index}
+                className="inline-block"
+                initial={{ opacity: 0, y: 50, rotateX: -90 }}
+                animate={{ opacity: 1, y: 0, rotateX: 0 }}
+                transition={{
+                  duration: 0.5,
+                  delay: index * 0.1,
+                  repeat: Number.POSITIVE_INFINITY,
+                  repeatDelay: 4,
+                }}
+              >
+                {char === " " ? "\u00A0" : char}
+              </motion.span>
+            ))}
+          </motion.h1>
         )
 
       case "rainbow":
         return (
-          <div className="min-h-[120px] flex items-center justify-center">
-            <motion.h1 className={`${baseClasses} text-center`} key={currentEffect.id}>
-              {currentEffect.text.split(" ").map((word, wordIndex) => (
-                <span key={wordIndex} className="inline-block mr-4">
-                  {word.split("").map((char, charIndex) => (
-                    <motion.span
-                      key={`${wordIndex}-${charIndex}`}
-                      className="inline-block"
-                      animate={{
-                        color: ["#ff0000", "#ff7f00", "#ffff00", "#00ff00", "#0000ff", "#4b0082", "#9400d3", "#ff0000"],
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Number.POSITIVE_INFINITY,
-                        delay: (wordIndex * word.length + charIndex) * 0.1,
-                      }}
-                      style={{
-                        textShadow: "0 0 10px currentColor",
-                      }}
-                    >
-                      {char}
-                    </motion.span>
-                  ))}
-                </span>
-              ))}
-            </motion.h1>
-          </div>
+          <motion.h1 className={`${baseClasses}`} key={currentEffect.id}>
+            {currentEffect.text.split("").map((char, index) => (
+              <motion.span
+                key={index}
+                className="inline-block"
+                animate={{
+                  color: ["#ff0000", "#ff7f00", "#ffff00", "#00ff00", "#0000ff", "#4b0082", "#9400d3", "#ff0000"],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Number.POSITIVE_INFINITY,
+                  delay: index * 0.1,
+                }}
+                style={{
+                  textShadow: "0 0 10px currentColor",
+                }}
+              >
+                {char === " " ? "\u00A0" : char}
+              </motion.span>
+            ))}
+          </motion.h1>
         )
 
       case "decode":
         return (
-          <div className="min-h-[120px] flex items-center justify-center">
-            <motion.h1
-              className={`${baseClasses} text-green-400 font-mono text-center`}
-              key={currentEffect.id}
-              style={{
-                textShadow: "0 0 10px rgba(0, 255, 0, 0.5)",
-                fontFamily: "monospace",
-                letterSpacing: "0.05em",
-              }}
-            >
-              {displayText}
-            </motion.h1>
-          </div>
+          <motion.h1
+            className={`${baseClasses} text-green-400 font-mono`}
+            key={currentEffect.id}
+            style={{
+              textShadow: "0 0 10px rgba(0, 255, 0, 0.5)",
+              fontFamily: "monospace",
+            }}
+          >
+            {displayText}
+          </motion.h1>
         )
 
       default:
         return (
-          <div className="min-h-[120px] flex items-center justify-center">
-            <motion.h1
-              className={`${baseClasses} bg-gradient-to-r from-white to-green-400 bg-clip-text text-transparent text-center`}
-              key={currentEffect.id}
-            >
-              {currentEffect.text}
-            </motion.h1>
-          </div>
+          <motion.h1
+            className={`${baseClasses} bg-gradient-to-r from-white to-green-400 bg-clip-text text-transparent`}
+            key={currentEffect.id}
+          >
+            {currentEffect.text}
+          </motion.h1>
         )
     }
   }
 
   return (
-    <div className="relative leading-3">
+    <div className="relative">
       <AnimatePresence mode="wait">{renderTextEffect()}</AnimatePresence>
 
       {/* Effect indicators */}
       <motion.div
-        className="flex justify-center space-x-3 mt-8"
+        className="flex justify-center mt-8 space-x-3"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
@@ -401,7 +430,7 @@ export function DynamicTextEffects() {
           >
             {index === currentIndex && (
               <motion.div
-                className="absolute inset-0 rounded-full bg-green-400"
+                className="absolute inset-0 bg-green-400 rounded-full"
                 animate={{
                   boxShadow: [
                     "0 0 5px rgba(0, 255, 0, 0.5)",
@@ -418,17 +447,52 @@ export function DynamicTextEffects() {
 
       {/* Effect name display */}
       <motion.div
-        className="text-center mt-4"
+        className="mt-4 text-center"
         key={currentEffect.name}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
       >
-        <p className="text-green-400 text-sm font-medium">{currentEffect.name}</p>
+        <p className="text-sm font-medium text-green-400">{currentEffect.name}</p>
       </motion.div>
 
-      {/* Auto-progress indicator */}
-      
+      {/* Auto-progress indicator with dynamic duration */}
+      <div className="w-64 mx-auto mt-6">
+        <div className="w-full h-1 overflow-hidden bg-gray-700 rounded-full">
+          <motion.div
+            className="h-full bg-gradient-to-r from-green-400 to-green-600"
+            initial={{ width: "0%" }}
+            animate={{ width: "100%" }}
+            transition={{
+              duration: (() => {
+                switch (currentEffect.type) {
+                  case "typewriter":
+                    return 2.1
+                  case "decode":
+                    return 3.5
+                  case "reveal":
+                    return 2.6
+                  case "3d-space":
+                    return 4.0
+                  case "glow":
+                    return 4.0
+                  case "rainbow":
+                    return 4.0
+                  case "black-hole":
+                    return 5.0
+                  default:
+                    return 3.0
+                }
+              })(),
+              ease: "linear",
+            }}
+            key={currentIndex}
+          />
+        </div>
+        <p className="mt-2 text-xs text-center text-gray-400">
+          {currentIndex + 1} of {textEffects.length} • {currentEffect.name}
+        </p>
+      </div>
     </div>
   )
 }
