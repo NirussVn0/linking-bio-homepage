@@ -2,6 +2,11 @@
 
 This directory contains the core application for the **LinkingBio** platform, a modern, customizable bio-link platform built with Next.js 15, TypeScript, and Tailwind CSS. It allows users to create stunning, interactive profile pages with advanced customization options, analytics, and premium features.
 
+### ✨ Showcase
+visit web: [SOV Studio](https://sabicoder.xyz/linking-bio-project)
+
+![Preview](images/preview-image.png)
+
 ## 🚀 Available Scripts
 
 ```bash
